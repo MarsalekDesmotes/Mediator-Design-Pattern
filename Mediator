@@ -1,0 +1,190 @@
+package jdp2e.mediator.modified.demo;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+// İleride Array List ve Zaman Tagleri kullanacağız bu yüzden java.utill kütüphanesinden classlarımızı import ediyoruz.
+
+
+//Mediator'ü interface olarak tanımlıyoruz eğer abstract bir class olarak tanımlasaydık o zaman child sınıfımızdan 2 tane sınıfı kalıtım olarak almak zorunda kalırdık
+//buna Multiple Inheritance denir ve Java bunu desteklemez.
+//ilgili makale için:   https://beginnersbook.com/2013/05/java-multiple-inheritance/
+
+interface Mediator 
+{
+
+     // implement edilen sınıflarda override edebilmek için tanımlanan fonksiyonlar
+ void register(Employee employee);  //işciyi kaydetmek için parametre olarak işci sınıfından bir nesne alıyoruz
+ void sendMessage(Employee fromEmployee, Employee toEmployee,String msg) throws InterruptedException; //Parametre olarak Gönderen kişi , Gönderilen kişi ve mesajı alan implement edilecek fonksiyon
+}
+
+
+
+
+
+
+// ConcreteMediator sınıfından Mediator Interface'imizi implement ettik
+class ConcreteMediator implements Mediator
+{
+    List<Employee> participants = new ArrayList<Employee>(); //Katılımcıları kontrol etmek ve listelemek için onları bir arrayliste alıyoruz aynı zamanda fifo özelliğini de kullanaibliriz.
+    @Override //Mediator Interface'inden override ettiğimiz fonksiyonumuz
+    public void register(Employee employee)
+        {
+            participants.add(employee); // parametre olarak gelen işciyi katılımcılar listesine ekliyoruz.
+        }
+    public void displayRegisteredEmployees() //kaydedilmiş işçiları yazdırmak için fonksiyon
+        {
+            System.out.println("At present ,registered participants are:");
+            for (Employee employee: participants) //listedeki tüm katılımcıları(işcileri) bir for döngüsü ile yazdırıyoruz.
+                {
+                    System.out.println(employee.getName()); //kaydedilmiş işcilerin isimlerini konsoloya yazdırıyoruz.
+                }
+        }
+    @Override
+    // Mediator Interface'inden override ettiğimiz mesaj gönderme işlevine yarayan metodumuz.
+    public void sendMessage(Employee fromEmployee,Employee toEmployee,String msg) throws InterruptedException
+        {
+            //kayıtlı olmayan bir kullanıcıya mesaj göndermeye çalıştığında bu if bloğu çalışır.
+            if( fromEmployee.employeeType()=="UnauthorizedUser")
+                {
+                    System.out.println("[ALERT Everyone] An outsider named "+ fromEmployee.getName()+" trying to send some messages to "+ toEmployee.getName()); // yabancının ismini ve kime mesaj attığını herkese gösteren kod satırı
+                    fromEmployee.receive(fromEmployee, ",you are not allowed to enter here."); //kayıtlı olmayan kullanıcıya bir uyarı mesajı gönderliyor.
+                }
+            else if (participants.contains(fromEmployee))
+                {
+                    System.out.println("-----"+fromEmployee.getName() +" posts some message at: "+LocalDateTime.now()+"-----"); // import ettiğimiz Java.utill kütüphanesinin LocalDateTime sınıfının
+                    //now() metodunu kullanarak gönderilen zamanı yazar 
+                    Thread.sleep(1000); // 1 saniye bekle 
+                
+                    //eğer kayıtlı isen sadece hedefin mesajı bilmesini sağlıyoruz. (gizlilik açısından)
+                    if(participants.contains(toEmployee))
+                        {
+                            toEmployee.receive(fromEmployee,msg);
+                        }
+                        //eğer hedef kullanıcı yoksa yani kayıtlı değilse 
+                    else
+                        {
+                            System.out.println(fromEmployee.getName() +" , your target recipient does not exist");
+                        }
+                }
+            //eğer yabancı birisi mesaj göndermeye çalışırsa önce kayıt olmasaı gerektipi ile ilgili else bloğu
+             else
+                {
+                    System.out.println("[ALERT] An unregistered employee named "+ fromEmployee.getName()+" trying to send some messages to "+ toEmployee.getName());System.out.println(fromEmployee.getName()+", you need to register yourself first.");
+                }
+ }
+}
+
+
+
+
+
+
+
+// Employee sınıfımızı parent class yapmak için onu soyut sınıf olarak  tanımladık böylelikle child classlardan extends edip method overriding yapabiliriz.
+abstract class Employee
+{
+    private Mediator mediator;  //Mediator interface'inden bir nesne tanımladık (Bunu Employee sınıfına Interface implement etmeden Interface fonksiyonlarını kullanabilmek için yaptık)
+    protected String name; //encapsulation yapmak yani veri kapsüllemek için protected olan String değerinde isim değişkenimize setter ve getter metodları ile ulaşacağız.
+    private boolean authorizedUser; // Kayıtlı kullanıcı olup olmadığını kotnrol etmek için tanımladığımız boolean değişken
+    public String getName() //getter metodu encapsulation yapıyoruz
+        {
+            return name;
+        }
+    public void setName(String name)  //setter metodu ile encapsulation yapıyoruz.
+        {
+             this.name = name;
+        }
+    // Abstract sınıfımızın constructor'ını tanımlıyoruz
+    public Employee(Mediator mediator, String name, boolean authorizedUser)
+        { 
+            //Constructor'u tanımladığımız anda bu atama ifadeleri başlar başlamaz çalışacaktır.
+            this.mediator = mediator;
+            this.name=name;
+            this.authorizedUser=authorizedUser;
+            if(!authorizedUser) //Burada verilen kodda bir yanlışlık var 101 satırda eğer kullanıcı kayıtlı değil ise onu kayıt etmesi gerekir. bu yüzden 101.satıra ! ekledim 
+                {
+                    mediator.register(this); // Eğer kayıtlı kullanıcı değil ise onu interfacce'de tanımladığımı metoddan
+                }
+        
+         }
+
+
+    //Aracı nesnesi arayıcılığıyla mesaj göndermek için tanımladığmız metod parametre olarak göndereceğimiz kişiyi ve göndereceğimiz mesajı alır. 
+    public void send(Employee toFriend,String msg) throws InterruptedException
+        {
+            mediator.sendMessage(this,toFriend, msg); //mesaj gönderilir.
+        }
+    
+    public void receive(Employee fromFriend,String message)
+        {
+            System.out.println(this.name+" received a message : " + message +" from an employee "+ fromFriend.getName() +".");
+        }
+    public abstract String employeeType();
+}
+
+
+
+    //Employe sınıfının child sınıfı olan Concrete employee halihazırda kayıtlı kullanıcılıarı kapsar ve Employee sınıfını extends eder
+class ConcreteEmployee extends Employee
+{
+    public ConcreteEmployee(Mediator mediator, String name,boolean authorizedUser) // ConcreateEmployee sınıfının Constructor'ı
+        {
+            super(mediator,name, authorizedUser);
+        }
+
+    @Override
+    public String employeeType() // Çalışanın tipini geri döndüren fonkksiyon çalışanın kayıtlı olup olmadığını kontrol etmek için fazlasıyla önemli 
+        {
+        return "ConcreteEmployee";
+        }
+}
+
+
+
+
+// Kayıtlı olmayan kullanıcılar için class tanımlaması yapıyoruz ve base sınıfımızı extends ediyoruz.
+class UnauthorizedUser extends Employee
+{
+    public UnauthorizedUser(Mediator mediator, String name)
+        {
+            //Class Constructor'u
+            
+            super(mediator,name, false); //ALT SINIFDAN ÜST SINIFA AİT NESNE OLUŞTURMAK İÇİN SUPER() METODU KULLANILIR.
+        }
+    
+    public void receive(Employee fromFriend,String message)
+        {
+            System.out.println(this.name+" received a message : " + message +" from an employee "+ fromFriend.getName() +"."); // alınan mesajı ekrana yazdıran fonksiyon.
+        }
+    public abstract String employeeType(); //method overriding  yapabilmek için yazılmış soyut fonksiyon
+}
+
+
+public class ModifiedMediatorPatternExample   // sistemimizi başlarmak için main fonksiyonunu içinde bulunduran bir class açıyoruz hiçbir sınıfı extend etmiyecek
+{
+    //Main fonksiyonunda nesneler oluşturuluyor ve fonksiyonlar çağrılıyor.
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("***Mediator Pattern Demo***\n");
+        ConcreteMediator mediator = new ConcreteMediator();
+        Employee Amit = new ConcreteEmployee(mediator, "Amit", true);  //ÇALIŞAN NESNELERİ
+        Employee Sohel = new ConcreteEmployee(mediator, "Sohel",true); //ÇALIŞAN NESNELERİ
+        Employee Raghu = new ConcreteEmployee(mediator, "Raghu",true); //ÇALIŞAN NESNELERİ
+        //Kayıtlı olamamış kullanıcı Jack 
+        Employee Jack = new ConcreteEmployee(mediator, "Jack",false);
+        // Yabancı KULLANICI Divya
+        Employee Divya = new UnauthorizedUser(mediator, "Divya");
+        //adayların listesini erkana bastırıyor.
+        mediator.displayRegisteredEmployees();
+        System.out.println("Communication starts among participants...");
+        Amit.send(Sohel,"Hi Sohel,can we discuss the mediator pattern?");
+        Sohel.send(Amit,"Hi Amit,Yup, we can discuss now.");
+        //Raghu mesaj gönderiyor.
+        Raghu.send(Amit,"Please get back to work quickly."); //PATRON RAGHU AMİT VE SOHEL'I ISINE DONMESI ICIN UYARI MESAJI ATIYOR
+        Raghu.send(Sohel,"Please get back to work quickly.");//PATRON RAGHU AMİT VE SOHEL'I ISINE DONMESI ICIN UYARI MESAJI ATIYOR
+        Jack.send(Amit,"Hello Guys.."); 
+        Divya.send(Raghu, "Hi Raghu");
+ }
+
+
+
+}
